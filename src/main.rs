@@ -9,6 +9,7 @@ use esp_idf_svc::{
 };
 use log::{error, info};
 use bme680::*;
+use serde::Serialize;
 use wifi::{try_reconnect_wifi, wifi};
 use std::{thread, time::Duration};
 use structs::{Config as MqttConfig, MqttMessage};
@@ -158,12 +159,23 @@ fn main() -> Result<()> {
                 anyhow::anyhow!("Failed to get sensor data: {:?}", e)
             })?;
 
-        let sensor_data = format!("{}, {}, {}, {}", data.temperature_celsius() as u32, data.humidity_percent() as u32, data.pressure_hpa() as u32, data.gas_resistance_ohm() as u32);
-        let sensor_message = MqttMessage {
-            message: sensor_data.into(),
+        
+        #[derive(Serialize)]
+        struct SensorData {
+            temperature: u32,
+            humidity: u32,
+            pressure: u32,
+            gas_resistance: u32,
+        }
+
+        let sensor_data = SensorData {
+            temperature: data.temperature_celsius() as u32,
+            humidity: data.humidity_percent() as u32,
+            pressure: data.pressure_hpa() as u32,
+            gas_resistance: data.gas_resistance_ohm() as u32,
         };
 
-        let sensor_json = serde_json::to_string(&sensor_message)?;
+        let sensor_json = serde_json::to_string(&sensor_data)?;
 
         match client.publish(
             &mqtt_config.pub_topic,
